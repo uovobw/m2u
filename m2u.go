@@ -9,6 +9,7 @@ import (
 var listenAddr string
 var sendAddrOne string
 var sendAddrTwo string
+var addrToChan map[string]chan []byte
 
 func unicast_send(datain chan([]byte) , addr string) {
     fmt.Print("Starting for address: ")
@@ -37,13 +38,18 @@ func unicast_send(datain chan([]byte) , addr string) {
 
 func main() {
 
-    if len(os.Args) != 4 {
-        fmt.Println("Usage: m2u <multicastGroup:port> <unicastDestination:port> <unicastDestination:port>")
+    addrToChan = make(map[string]chan []byte)
+
+    if len(os.Args) < 4 {
+        fmt.Println("Usage: m2u multicastGroup:port unicastDestination:port unicastDestination:port [unicastDestination:port ...]")
         os.Exit(1)
     }
+
     listenAddr = os.Args[1]
-    sendAddrOne = os.Args[2]
-    sendAddrTwo = os.Args[3]
+
+    for _, h := range os.Args[2:] {
+        addrToChan[h] = make(chan []byte, 2048)
+    }
 
     fmt.Println("Starting")
     mcaddr, err := net.ResolveUDPAddr("udp", listenAddr)
@@ -58,11 +64,10 @@ func main() {
     }
     defer socket.Close()
 
-    // create two outgoing channels and processes
-    c1 := make(chan []byte, 2048)
-    c2 := make(chan []byte, 2048)
-    go unicast_send(c1, sendAddrOne)
-    go unicast_send(c2, sendAddrTwo)
+    // spawn as many goroutines ad needed
+    for addr, channel := range addrToChan {
+        go unicast_send(channel, addr)
+    }
 
     // start reading
     for {
@@ -72,8 +77,9 @@ func main() {
             fmt.Println("Could not ReadFromUDP")
         }
         toWrite := b[:n]
-        c1 <- toWrite
-        c2 <- toWrite
+        for _, c := range addrToChan {
+            c <- toWrite
+        }
     }
 
 }
