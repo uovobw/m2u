@@ -4,14 +4,17 @@ import (
     "fmt"
     "os"
     "net"
+    "flag"
     )
 
 var listenAddr string
 var addrToChan map[string]chan []byte
+var verbose *bool
 
 func unicast_send(datain chan([]byte) , addr string) {
-    fmt.Print("Starting for address: ")
-    fmt.Println(addr)
+    if *verbose {
+        fmt.Println(fmt.Sprintf("Starting unicast sender to %s", addr))
+    }
     address, err := net.ResolveUDPAddr("udp", addr)
     if err != nil {
         fmt.Println("Cannot resolve passed address")
@@ -37,10 +40,13 @@ func unicast_send(datain chan([]byte) , addr string) {
 
 func main() {
 
+    verbose = flag.Bool("v", false, "be verbose")
+    flag.Parse()
+
     addrToChan = make(map[string]chan []byte)
 
     if len(os.Args) < 4 {
-        fmt.Println("Usage: m2u multicastGroup:port unicastDestination:port unicastDestination:port [unicastDestination:port ...]")
+        fmt.Println(fmt.Sprintf("Usage: %s [-v] multicastGroup:port unicastDestination:port [unicastDestination:port ...]", os.Args[0]))
         os.Exit(1)
     }
 
@@ -50,7 +56,13 @@ func main() {
         addrToChan[h] = make(chan []byte, 2048)
     }
 
-    fmt.Println("Starting")
+    if *verbose {
+        fmt.Print(fmt.Sprintf("Multicast address: %s", listenAddr))
+        for address, _ := range addrToChan {
+            fmt.Println(fmt.Sprintf("Sending to: %s", address))
+        }
+    }
+
     mcaddr, err := net.ResolveUDPAddr("udp", listenAddr)
     if err != nil {
         fmt.Println("Could not resolve multicast address")
@@ -63,12 +75,15 @@ func main() {
     }
     defer socket.Close()
 
-    // spawn as many goroutines ad needed
+    // spawn as many goroutines as needed
     for addr, channel := range addrToChan {
         go unicast_send(channel, addr)
     }
 
-    // start reading
+    // main read from connection -> write to channel loop
+    if *verbose {
+        fmt.Println("Entering main loop")
+    }
     for {
         b := make([]byte, 1500)
         n, _, err := socket.ReadFromUDP(b)
