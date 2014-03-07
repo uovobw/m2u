@@ -50,14 +50,20 @@ func main() {
         os.Exit(1)
     }
 
-    listenAddr = os.Args[1]
-
-    for _, h := range os.Args[2:] {
-        addrToChan[h] = make(chan []byte, 2048)
+    if *verbose {
+        listenAddr = os.Args[2]
+        for _, h := range os.Args[3:] {
+            addrToChan[h] = make(chan []byte, 2048)
+        }
+    } else {
+        listenAddr = os.Args[1]
+        for _, h := range os.Args[2:] {
+            addrToChan[h] = make(chan []byte, 2048)
+        }
     }
 
     if *verbose {
-        fmt.Print(fmt.Sprintf("Multicast address: %s", listenAddr))
+        fmt.Println(fmt.Sprintf("Multicast address: %s", listenAddr))
         for address, _ := range addrToChan {
             fmt.Println(fmt.Sprintf("Sending to: %s", address))
         }
