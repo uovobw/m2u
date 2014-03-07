@@ -7,8 +7,6 @@ import (
     )
 
 var listenAddr string
-var sendAddrOne string
-var sendAddrTwo string
 var addrToChan map[string]chan []byte
 
 func unicast_send(datain chan([]byte) , addr string) {
@@ -25,6 +23,7 @@ func unicast_send(datain chan([]byte) , addr string) {
         fmt.Println(err)
         os.Exit(1)
     }
+    defer conn.Close()
     // start reading from the chan and sending to the remote host
     for {
         d := <- datain
